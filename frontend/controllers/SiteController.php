@@ -134,15 +134,6 @@ class SiteController extends Controller {
     }
 
     /**
-     * Displays about page.
-     *
-     * @return mixed
-     */
-    public function actionAbout(): string|Response {
-        return $this->render('about');
-    }
-
-    /**
      * Signs user up.
      *
      * @return string|Response
