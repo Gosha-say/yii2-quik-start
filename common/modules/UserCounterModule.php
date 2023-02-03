@@ -14,7 +14,7 @@ class UserCounterModule {
 
     public User $user;
     /**@var $role Role[] * */
-    //private array $role = [];
+    private array $role = [];
 
     const ACTIVITY_TYPE_USER = 'userActivity';
     const ACTIVITY_TYPE_ROLE = 'roleActivity';

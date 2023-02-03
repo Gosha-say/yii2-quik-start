@@ -18,6 +18,7 @@ How to start
 3. `init`
 4. `php yii migrate`
 5. `php yii start-up`
-6. `yii migrate --migrationPath=@yii/rbac/migrations`
-7. `php yii serve --docroot="frontend/web"`
-8. Go to [http://127.0.0.1:8080](http://127.0.0.1:8080)
+6. `php yii migrate --migrationPath=@yii/rbac/migrations`
+7. `php yii start-up/init-rbac`
+8. `php yii serve --docroot="frontend/web"`
+9. Go to [http://127.0.0.1:8080](http://127.0.0.1:8080)

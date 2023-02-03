@@ -52,4 +52,34 @@ class StartUpController extends Controller {
         $_output = str_pad($output, strlen($output) + 30, "-");
         Console::stdout($_output . PHP_EOL);
     }
+
+    public function actionInitRbac() {
+        $auth = Yii::$app->authManager;
+        $auth->removeAll();
+        try {
+            Yii::$app->db->createCommand('ALTER TABLE auth_item ADD limit_count INT DEFAULT 0;')->execute();
+            $addProduct = $auth->createPermission('addProduct');
+            $addProduct->description = 'Add a product';
+            $auth->add($addProduct);
+
+            $updateProduct = $auth->createPermission('updateProduct');
+            $updateProduct->description = 'Update product';
+            $auth->add($updateProduct);
+
+            $user = $auth->createRole('user');
+            $auth->add($user);
+            $auth->addChild($user, $addProduct);
+
+            $admin = $auth->createRole('admin');
+            $auth->add($admin);
+            $auth->addChild($admin, $updateProduct);
+            $auth->addChild($admin, $user);
+
+            $auth->assign($user, 2);
+            $auth->assign($admin, 1);
+        } catch (Exception $e) {
+            Console::stdout("Error: can not create RBAC roles ({$e->getMessage()})" . PHP_EOL);
+            $auth->removeAll();
+        }
+    }
 }
