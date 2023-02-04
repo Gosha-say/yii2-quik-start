@@ -2,11 +2,13 @@
 
 namespace common\models;
 
+use common\modules\UserCounterModule;
 use Yii;
 use yii\base\Exception;
 use yii\base\NotSupportedException;
 use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
+use yii\web\ForbiddenHttpException;
 use yii\web\IdentityInterface;
 
 /**
@@ -24,12 +26,13 @@ use yii\web\IdentityInterface;
  * @property integer $updated_at
  * @property string $password write-only password
  */
-class User extends ActiveRecord implements IdentityInterface
-{
+class User extends ActiveRecord implements IdentityInterface {
     const STATUS_DELETED = 0;
+    const STATUS_LOCKED_BY_LIMIT = 8;
     const STATUS_INACTIVE = 9;
     const STATUS_ACTIVE = 10;
-
+    public UserCounterModule $counterModule;
+    public bool $locked = false;
 
     /**
      * {@inheritdoc}
@@ -53,17 +56,34 @@ class User extends ActiveRecord implements IdentityInterface
     public function rules(): array {
         return [
             ['status', 'default', 'value' => self::STATUS_INACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_DELETED]],
+            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_INACTIVE, self::STATUS_DELETED, self::STATUS_LOCKED_BY_LIMIT]],
         ];
     }
 
     public function afterSave($insert, $changedAttributes) {
         parent::afterSave($insert, $changedAttributes);
-        if(UserCounter::find()->where(['user_id' => $this->id])->exists()) return;
+        if (UserCounter::find()->where(['user_id' => $this->id])->exists()) return;
         $counter = new UserCounter();
         $counter->user_id = $this->id;
         $counter->counter = Counter::makeEmpty();
         $counter->save();
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function afterFind() {
+        parent::afterFind();
+        $this->counterModule = new UserCounterModule($this);
+        $this->locked = !$this->counterModule->canUserDoThis();
+    }
+
+    public function resetResponseByLimit(): void {
+        if ($this->locked) throw new ForbiddenHttpException('Locked by activity: ' . implode(', ', $this->counterModule->canUserDoThisWithReason()));
+    }
+
+    public function getIsLocked(): bool {
+        return $this->locked;
     }
 
     /**
@@ -103,7 +123,7 @@ class User extends ActiveRecord implements IdentityInterface
 
         return static::findOne([
             'password_reset_token' => $token,
-            'status' => self::STATUS_ACTIVE,
+            'status'               => self::STATUS_ACTIVE,
         ]);
     }
 
@@ -116,7 +136,7 @@ class User extends ActiveRecord implements IdentityInterface
     public static function findByVerificationToken(string $token): ?static {
         return static::findOne([
             'verification_token' => $token,
-            'status' => self::STATUS_INACTIVE
+            'status'             => self::STATUS_INACTIVE
         ]);
     }
 
@@ -131,7 +151,7 @@ class User extends ActiveRecord implements IdentityInterface
             return false;
         }
 
-        $timestamp = (int) substr($token, strrpos($token, '_') + 1);
+        $timestamp = (int)substr($token, strrpos($token, '_') + 1);
         $expire = Yii::$app->params['user.passwordResetTokenExpire'];
         return $timestamp + $expire >= time();
     }
@@ -139,8 +159,7 @@ class User extends ActiveRecord implements IdentityInterface
     /**
      * {@inheritdoc}
      */
-    public function getId()
-    {
+    public function getId() {
         return $this->getPrimaryKey();
     }
 
@@ -173,8 +192,7 @@ class User extends ActiveRecord implements IdentityInterface
      *
      * @param string $password
      */
-    public function setPassword(string $password)
-    {
+    public function setPassword(string $password) {
         $this->password_hash = Yii::$app->security->generatePasswordHash($password);
     }
 
@@ -182,8 +200,7 @@ class User extends ActiveRecord implements IdentityInterface
      * Generates "remember me" authentication key
      * @throws Exception
      */
-    public function generateAuthKey()
-    {
+    public function generateAuthKey() {
         $this->auth_key = Yii::$app->security->generateRandomString();
     }
 
@@ -191,8 +208,7 @@ class User extends ActiveRecord implements IdentityInterface
      * Generates new password reset token
      * @throws Exception
      */
-    public function generatePasswordResetToken()
-    {
+    public function generatePasswordResetToken() {
         $this->password_reset_token = Yii::$app->security->generateRandomString() . '_' . time();
     }
 
@@ -200,16 +216,14 @@ class User extends ActiveRecord implements IdentityInterface
      * Generates new token for email verification
      * @throws Exception
      */
-    public function generateEmailVerificationToken()
-    {
+    public function generateEmailVerificationToken() {
         $this->verification_token = Yii::$app->security->generateRandomString() . '_' . time();
     }
 
     /**
      * Removes password reset token
      */
-    public function removePasswordResetToken()
-    {
+    public function removePasswordResetToken() {
         $this->password_reset_token = null;
     }
 }
