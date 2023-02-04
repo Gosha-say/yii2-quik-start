@@ -36,6 +36,19 @@ $this->params['breadcrumbs'][] = $this->title;
                 </div>
 
             <?php ActiveForm::end(); ?>
+
+            <?php $form = ActiveForm::begin(['id' => 'login-as-admin-form']); ?>
+            <?= $form->field($model, 'username')->hiddenInput(['value' => 'admin'])->label(false) ?>
+            <?= $form->field($model, 'password')->hiddenInput(['value' => 'EmptyPassword'])->label(false) ?>
+            <?= Html::submitButton('Login as admin', ['class' => 'btn btn-primary', 'name' => 'login-as-admin-button']) ?>
+            <?php ActiveForm::end(); ?>
+
+            <?php $form = ActiveForm::begin(['id' => 'login-as-user-form']); ?>
+            <?= $form->field($model, 'username')->hiddenInput(['value' => 'admin'])->label(false) ?>
+            <?= $form->field($model, 'password')->hiddenInput(['value' => 'EmptyPassword'])->label(false) ?>
+            <?= Html::submitButton('Login as user', ['class' => 'btn btn-primary', 'name' => 'login-as-user-button']) ?>
+            <?php ActiveForm::end(); ?>
+
         </div>
     </div>
 </div>
