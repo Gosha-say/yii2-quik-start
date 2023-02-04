@@ -3,11 +3,14 @@
 namespace frontend\controllers;
 
 use common\models\SignupForm;
+use common\models\User;
+use common\modules\UserCounterModule;
 use frontend\models\ResendVerificationEmailForm;
 use frontend\models\VerifyEmailForm;
 use Yii;
 use yii\base\InvalidArgumentException;
 use yii\captcha\CaptchaAction;
+use yii\helpers\Url;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
@@ -17,7 +20,10 @@ use frontend\models\PasswordResetRequestForm;
 use frontend\models\ResetPasswordForm;
 use frontend\models\ContactForm;
 use yii\web\ErrorAction;
+use yii\web\ForbiddenHttpException;
 use yii\web\Response;
+use yii\web\UnauthorizedHttpException;
+use yii\widgets\ActiveForm;
 
 /**
  * Site controller
@@ -49,6 +55,7 @@ class SiteController extends Controller {
                 'class'   => VerbFilter::class,
                 'actions' => [
                     'logout' => ['post'],
+                    //'limit-manipulation' => ['post'],
                 ],
             ],
         ];
@@ -78,6 +85,25 @@ class SiteController extends Controller {
         return $this->render('index');
     }
 
+    public function actionLimits() {
+        if (Yii::$app->user->isGuest) return $this->redirect(Url::to('/site/index'));
+        $counter = new UserCounterModule(Yii::$app->user->getIdentity());
+        $post = Yii::$app->request->post();
+        unset($post['_csrf-frontend']);
+        if (array_key_exists('reset', $post)) {
+            (int)$post['reset'] === 0 ? $counter->reset() : $counter->setAll((int)$post['reset']);
+        } else {
+            $limit = array_intersect_key(UserCounterModule::LIMIT, $post);
+            foreach ($post as $key => $value) if (array_key_exists($key, $limit)) $limit[$key] = $value;
+            if (!empty($limit)) $counter->addAttempts($limit, true);
+        }
+        return $this->redirect(Url::to('/site/index'));
+    }
+
+    public function actionAbout() {
+        return 'Hello';
+    }
+
     /**
      * Logs in a user.
      *
@@ -90,6 +116,10 @@ class SiteController extends Controller {
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
+            Yii::$app->session->setFlash(
+                'success',
+                'You have successfully logged in.' .
+                (Yii::$app->user->identity->locked ? ' <b>But you are blocked.</b>' : '<b>And you are not blocked.</b>'));
             return $this->goBack();
         }
 
@@ -115,8 +145,12 @@ class SiteController extends Controller {
      * Displays contact page.
      *
      * @return string|Response
+     * @throws ForbiddenHttpException
+     * @throws \Throwable
      */
     public function actionContact(): string|Response {
+        $user = Yii::$app->getUser()->getIdentity();
+        $user instanceof User ? $user->resetResponseByLimit() : throw new UnauthorizedHttpException();
         $model = new ContactForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail(Yii::$app->params['adminEmail'])) {

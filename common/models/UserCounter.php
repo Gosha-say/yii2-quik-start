@@ -51,12 +51,25 @@ class UserCounter extends ActiveRecord {
         Yii::$app->db->createCommand("insert into user_counter (user_id, counter) values ($this->user_id, '$counter')")->execute();
     }
 
+    /**
+     * @throws Exception
+     */
+    public function update($runValidation = false, $attributeNames = null) {
+        $counter = $this->counter->jsonSerialize();
+        Yii::$app->db->createCommand("update user_counter set counter = '$counter' where user_id = $this->user_id")->execute();
+    }
+
     public function afterFind() {
         parent::afterFind();
         $this->counter = Counter::makeCounter($this);
     }
 
-    public static function getByUser(User $user): Counter|null {
+    public static function getByUser(User $user): UserCounter|null {
+        $counter = static::find()->where(['user_id' => $user->id])->one();
+        return $counter instanceof UserCounter ? $counter : null;
+    }
+
+    public static function getCounterByUser(User $user): Counter|null {
         $counter = static::find()->where(['user_id' => $user->id])->one();
         return $counter instanceof UserCounter ? $counter->counter : null;
     }
