@@ -8,16 +8,12 @@ use common\models\UserCounter;
 use Exception;
 use Yii;
 use yii\db\ActiveRecord;
-use yii\rbac\Role;
 
 class UserCounterModule {
 
 
     public User $user;
     public ?UserCounter $userCounter;
-    /**@var $role Role[] * */
-    private array $role = [];
-
     const ACTIVITY_TYPE_USER = 'userActivity';
     const ACTIVITY_TYPE_ROLE = 'roleActivity';
     const ACTIVITY_TYPE_PERMISSION = 'permissionActivity';
